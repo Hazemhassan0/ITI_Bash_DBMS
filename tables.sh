@@ -46,9 +46,18 @@ create_table() {
 # List Tables
 list_tables() {
     echo "Tables in database:"
-    ls -l "$DB_DIR" | grep ".meta" | sed 's/.meta//'
-}
 
+    for meta_file in "$DB_DIR"/*.meta; do
+
+        [[ -e "$meta_file" ]] || { echo "No tables found."; return; }
+
+        tname=$(basename "$meta_file" .meta)
+
+        schema=$(head -n 1 "$meta_file")
+
+        echo "Table: $tname | Schema: $schema"
+    done
+}
 # Drop Table
 drop_table() {
     read -p "Enter table name to drop: " tname
@@ -85,4 +94,4 @@ main_tb_menu(){
     done
 }
 
-main_tb_menu
+# main_tb_menu
