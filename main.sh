@@ -72,7 +72,8 @@ connect_db() {
     if [[ -d "$DB_PATH/$db_name" ]]; then
         echo "Connected to database '$db_name'."
         DB_DIR="$DB_PATH/$db_name" # variable to hold the current database path, export if needed or just pass it to functions
-        db_menu    #  ya beshooo Call the database menu function from tables.sh
+        export $DB_DIR
+        main_tb_menu    #  ya beshooo Call the database menu function from tables.sh
     else
         echo "Error: Database '$db_name' does not exist."
     fi
