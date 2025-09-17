@@ -41,7 +41,11 @@ create_db() {
 
 list_dbs() {
     echo "Available Databases:"
-    ls "$DB_PATH"
+    if [ -z "$(ls "$DB_PATH")" ]; then
+        echo "No databases found."
+    else
+        ls "$DB_PATH"
+    fi
 }
 
 drop_db() {
@@ -82,9 +86,7 @@ connect_db() {
 main_menu() {
     while true; do
         echo "=============================="
-        echo " Database Management System"
-        echo "=============================="
-        echo "========== Main Menu =========="
+        echo "========== Main Menu ========="
         echo "=============================="
 
         echo "1. Create Database"
@@ -106,4 +108,7 @@ main_menu() {
 }
 
 # initialize program
+clear
+echo "=============================="
+echo " Database Management System"
 main_menu
