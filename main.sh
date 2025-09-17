@@ -85,6 +85,7 @@ connect_db() {
 
 main_menu() {
     while true; do
+        clear
         echo "=============================="
         echo "========== Main Menu ========="
         echo "=============================="
@@ -97,12 +98,25 @@ main_menu() {
         read -p "Choose an option (1-5): " choice
 
         case $choice in
-            1) create_db ;;
-            2) list_dbs ;;
-            3) drop_db ;;
-            4) connect_db ;;
+            1) 
+                clear
+                create_db
+                read -p "Press Enter to continue..." ;;
+            2) 
+                clear
+                list_dbs 
+                read -p "Press Enter to continue..." ;;
+            3) 
+                clear
+                drop_db 
+                read -p "Press Enter to continue..." ;;
+            4) 
+                clear
+                connect_db
+                read -p "Press Enter to continue..."  ;;
             5) echo "Exiting..."; exit 0 ;;
-            *) echo "Invalid option. Please try again (if you want to exit, choose 5 ,please)." ;;
+            *) echo "Invalid option. Please try again (if you want to exit, choose 5 ,please)."
+                read -p "Press Enter to continue..."   ;;
         esac
     done
 }
