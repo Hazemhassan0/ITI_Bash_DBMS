@@ -2,8 +2,8 @@
 
 # Importing modules
 source ./tables.sh
-source ./insert.sh
-source ./update.sh
+# source ./table_options.sh
+# source ./update.sh
 
 # ========== Database Management ==========
 # Author: Hazem Abdelnasser  
@@ -44,7 +44,7 @@ list_dbs() {
     if [ -z "$(ls "$DB_PATH")" ]; then
         echo "No databases found."
     else
-        ls -1 "$DB_PATH" | nl
+        ls "$DB_PATH"
     fi
 }
 
