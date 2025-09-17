@@ -77,8 +77,6 @@ main_tb_menu(){
         echo "==============================="
         echo "       Tables operations       "
         echo "==============================="
-        echo "========== Main Menu =========="
-        echo "==============================="
 
         echo "1. create table."
         echo "2. list tables."
