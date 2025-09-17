@@ -44,7 +44,7 @@ list_dbs() {
     if [ -z "$(ls "$DB_PATH")" ]; then
         echo "No databases found."
     else
-        ls "$DB_PATH"
+        ls -1 "$DB_PATH" | nl
     fi
 }
 
