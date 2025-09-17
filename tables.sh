@@ -71,27 +71,40 @@ drop_table() {
 }
 
 
-main_tb_menu(){
-
+main_tb_menu() {
     while true; do
+        clear
+
         echo "==============================="
         echo "       Tables operations       "
         echo "==============================="
-        echo "========== Main Menu =========="
-        echo "==============================="
 
-        echo "1. create table."
-        echo "2. list tables."
-        echo "3. delete tables."
+        echo "1. Create table."
+        echo "2. List tables."
+        echo "3. Delete table."
+        echo "4. Exit"
 
         read -p "Enter your choice: " choice
         case $choice in
-            1) create_table ;;
-            2) list_tables ;;
-            3) drop_table ;;
-            *) echo "Invalid choice. Please try again." ;;
+            1) 
+                clear
+                create_table 
+                read -p "Press Enter to continue..." ;;
+            2) 
+                clear
+                list_tables 
+                read -p "Press Enter to continue..." ;;
+            3) 
+                clear
+                drop_table 
+                read -p "Press Enter to continue..." ;;
+            4) break ;;
+            *) 
+                echo "Invalid choice. Please try again."
+                sleep 1 ;;
         esac
     done
 }
+
 
 # main_tb_menu
