@@ -1,7 +1,5 @@
 #!/bin/bash
 
-# Importing modules
-source ./tables.sh
 # source ./table_options.sh
 # source ./update.sh
 
@@ -11,6 +9,9 @@ source ./tables.sh
 # - Main menu
 # - Create/List/Drop/Connect databases
 # - DB Folder structure setup
+
+# Importing modules
+source ./tables.sh
 
 DB_PATH="./databases"
 
@@ -123,6 +124,4 @@ main_menu() {
 
 # initialize program
 clear
-echo "=============================="
-echo " Database Management System"
 main_menu

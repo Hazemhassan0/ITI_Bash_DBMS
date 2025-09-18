@@ -1,0 +1,669 @@
+#!/bin/bash
+
+# source ./table_options.sh
+# source ./update.sh
+
+# ========== Database Management ==========
+# Author: Hazem Abdelnasser  
+# Responsibilities:
+# - Main menu
+# - Create/List/Drop/Connect databases
+# - DB Folder structure setup
+
+# Importing modules
+source ./tables.sh
+
+DB_PATH="./databases"
+
+mkdir -p "$DB_PATH"
+
+create_db() {
+    read -p "Enter the new database name please: " db_name
+
+    if [[ -z "$db_name" ]]; then
+        echo "Error: Database name cannot be empty."
+        return
+    fi
+    if [[ "$db_name" =~ [^a-zA-Z0-9_] ]]; then
+        echo "Error: Database name can only contain letters, numbers, and underscores."
+        return
+    fi
+
+    if [[ -d "$DB_PATH/$db_name" ]]; then
+        echo "Error: Database '$db_name' already exists."
+    else
+        mkdir -p "$DB_PATH/$db_name"
+        echo "Database '$db_name' was created successfully."
+    fi
+
+
+
+}
+
+list_dbs() {
+    echo "Available Databases:"
+    if [ -z "$(ls "$DB_PATH")" ]; then
+        echo "No databases found."
+    else
+        ls "$DB_PATH"
+    fi
+}
+
+drop_db() {
+    read -p "Enter the database name you want to drop: " db_name
+
+    if [[ -z "$db_name" ]]; then
+        echo "Error: Database name cannot be empty."
+        return
+    fi
+
+    if [[ -d "$DB_PATH/$db_name" ]]; then
+        rm -rf "$DB_PATH/$db_name"
+        echo "Database '$db_name' was dropped successfully."
+    else
+        echo "Error: Database '$db_name' does not exist."
+    fi
+}
+
+
+connect_db() {
+    read -p "Enter the database name you want to connect to: " db_name
+
+    if [[ -z "$db_name" ]]; then
+        echo "Error: Database name cannot be empty."
+        return
+    fi
+
+    if [[ -d "$DB_PATH/$db_name" ]]; then
+        echo "Connected to database '$db_name'."
+        DB_DIR="$DB_PATH/$db_name" # variable to hold the current database path, export if needed or just pass it to functions
+        export $DB_DIR
+        main_tb_menu    #  ya beshooo Call the database menu function from tables.sh
+    else
+        echo "Error: Database '$db_name' does not exist."
+    fi
+}
+
+main_menu() {
+    while true; do
+        clear
+        echo "=============================="
+        echo "========== Main Menu ========="
+        echo "=============================="
+
+        echo "1. Create Database"
+        echo "2. List Databases"
+        echo "3. Drop Database"
+        echo "4. Connect to Database"
+        echo "5. Exit"
+        read -p "Choose an option (1-5): " choice
+
+        case $choice in
+            1) 
+                clear
+                create_db
+                read -p "Press Enter to continue..." ;;
+            2) 
+                clear
+                list_dbs 
+                read -p "Press Enter to continue..." ;;
+            3) 
+                clear
+                drop_db 
+                read -p "Press Enter to continue..." ;;
+            4) 
+                clear
+                connect_db
+                read -p "Press Enter to continue..."  ;;
+            5) echo "Exiting..."; exit 0 ;;
+            *) echo "Invalid option. Please try again (if you want to exit, choose 5 ,please)."
+                read -p "Press Enter to continue..."   ;;
+        esac
+    done
+}
+
+# initialize program
+clear
+echo "=============================="
+echo " Database Management System"
+main_menu
+
+#!/bin/bash
+
+# ========== Table Operations ==========
+# Author: Hossam Ahmed Elleithy
+# Responsibilities:
+# - Select rows from table (with column filtering and WHERE condition)
+# - Insert rows into table (PK uniqueness check, NULL handling)
+# Friendly notes:
+#   - Beshoo : I made some modifications in ' create_table() ' func to be more efficient & I add ' Select table ' in your ' main_tb_menu() '  func to connect to my file to make operations 
+
+# ===============================
+# Function: select_from_table
+# Purpose: Show data from the table, with optional filters
+# ===============================
+
+source ./update.sh
+
+select_from_table() {
+    # First, check if user even selected a table
+    if [[ -z "$TABLE_NAME" ]]; then
+        echo "Error: No table selected. Please select a table first."
+        return
+    fi
+
+    # Paths for schema (.meta) and data (.data)
+    meta_file="$DB_DIR/$TABLE_NAME.meta"
+    data_file="$DB_DIR/$TABLE_NAME.data"
+
+    # If either file doesn’t exist → the table isn’t real
+    if [[ ! -f "$meta_file" || ! -f "$data_file" ]]; then
+        echo "Error: Table '$TABLE_NAME' does not exist."
+        return
+    fi
+
+    # =======================
+    # Load schema (columns)
+    # =======================
+    schema=$(cat "$meta_file")
+    IFS=',' read -r -a columns <<< "$schema"   # split schema by commas into array
+
+    echo "Table columns: "
+    for i in "${!columns[@]}"; do
+        # Each column looks like: name:type:constraint
+        cname=$(echo "${columns[$i]}" | cut -d':' -f1)
+        echo "$((i+1)). $cname"   # show numbered column names
+    done
+
+    # Ask which columns the user wants to see
+    read -p "Enter column numbers to retrieve (comma-separated, or * for all): " col_choice
+
+    if [[ "$col_choice" == "*" ]]; then
+        # Select all columns
+        selected_cols=("${!columns[@]}")
+    else
+        # Split user input into array
+        IFS=',' read -r -a selected_cols <<< "$col_choice"
+        # Validate: must be numbers and inside column range
+        for i in "${selected_cols[@]}"; do
+            if ! [[ "$i" =~ ^[0-9]+$ && $i -ge 1 && $i -le ${#columns[@]} ]]; then
+                echo "Invalid column selection."
+                return
+            fi
+        done
+    fi
+
+    # =======================
+    # Optional WHERE condition
+    # =======================
+    read -p "Do you want to add a WHERE condition? (y/n): " add_where
+    where_col=""
+    where_val=""
+    if [[ "$add_where" == "y" ]]; then
+        read -p "Enter column name for condition: " where_col
+        read -p "Enter value to match: " where_val
+    fi
+
+    echo "---- Results ----"
+    # =======================
+    # Read each row from .data
+    # =======================
+    while IFS=',' read -r -a row; do
+        # Handle WHERE condition if user added one
+        if [[ -n "$where_col" ]]; then
+            match_index=-1
+            for i in "${!columns[@]}"; do
+                cname=$(echo "${columns[$i]}" | cut -d':' -f1)
+                if [[ "$cname" == "$where_col" ]]; then
+                    match_index=$i
+                    break
+                fi
+            done
+            if [[ $match_index -eq -1 ]]; then
+                echo "Invalid WHERE column."
+                return
+            fi
+            # If this row doesn’t match → skip it
+            if [[ "${row[$match_index]}" != "$where_val" ]]; then
+                continue
+            fi
+        fi
+
+        # =======================
+        # Print selected columns
+        # =======================
+        out=""
+        for i in "${selected_cols[@]}"; do
+            if [[ "$col_choice" == "*" ]]; then
+                idx=$i
+            else
+                idx=$((i-1))   # adjust for human input (1-based)
+            fi
+            out+="${row[$idx]} | "
+        done
+        echo "${out% | }"   # trim the last pipe
+    done < "$data_file"
+}
+
+# ===============================
+# Function: insert_into_table
+# Purpose: Add a new row into the table
+# ===============================
+insert_into_table() {
+    if [[ -z "$TABLE_NAME" ]]; then
+        echo "Error: No table selected. Please select a table first."
+        return
+    fi
+
+    meta_file="$DB_DIR/$TABLE_NAME.meta"
+    data_file="$DB_DIR/$TABLE_NAME.data"
+
+    if [[ ! -f "$meta_file" || ! -f "$data_file" ]]; then
+        echo "Error: Table '$TABLE_NAME' does not exist."
+        return
+    fi
+
+    # Load schema
+    schema=$(cat "$meta_file")
+    IFS=',' read -r -a columns <<< "$schema"
+    new_row=()
+
+    # Ask for each column value
+    for i in "${!columns[@]}"; do
+        colname=$(echo "${columns[$i]}" | cut -d':' -f1)
+        coltype=$(echo "${columns[$i]}" | cut -d':' -f2)
+        constraint=$(echo "${columns[$i]}" | cut -d':' -f3)
+
+        read -p "Enter value for column '$colname' ($coltype): " value
+
+        # =======================
+        # Primary Key checks
+        # =======================
+        if [[ "$constraint" == "PK" ]]; then
+            # Duplicate check (first value in line must be unique)
+            if grep -q "^$value," "$data_file"; then
+                echo "Error: Duplicate primary key '$value'."
+                return
+            fi
+            # NULL check
+            if [[ -z "$value" ]]; then
+                echo "Error: Primary key cannot be NULL."
+                return
+            fi
+        fi
+
+        # =======================
+        # Type validation
+        # =======================
+        if [[ -n "$value" ]]; then
+            if [[ "$coltype" == "int" && ! "$value" =~ ^[0-9]+$ ]]; then
+                echo "Error: Column '$colname' must be an integer."
+                return
+            fi
+        else
+            # If user didn’t enter anything → save NULL
+            value="NULL"
+        fi
+
+        # Add value to the new row array
+        new_row+=("$value")
+    done
+
+    # Join values with commas and save to .data file
+    echo "${new_row[*]}" | sed 's/ /,/g' >> "$data_file"
+    echo "Row inserted successfully."
+}
+
+# ===============================
+# Submenu: Table Operations Menu
+# ===============================
+table_ops_menu() {
+    while true; do
+        clear
+        echo "==============================="
+        echo "     Table Operations Menu     "
+        echo "==============================="
+        echo "Table: $TABLE_NAME"
+        echo
+        echo "1. Select from table"
+        echo "2. Insert into table"
+        echo "3. Update rows"
+        echo "4. Delete rows"
+        echo "5. Back"
+        read -p "Choose an option: " choice
+
+        case $choice in
+            1) clear; select_from_table; read -p "Press Enter to continue..." ;;
+            2) clear; insert_into_table; read -p "Press Enter to continue..." ;;
+            3) clear; update_rows; read -p "Press Enter to continue..." ;;
+            4) clear; delete_rows; read -p "Press Enter to continue..." ;;
+            5) break ;;
+            *) echo "Invalid choice."; sleep 1 ;;
+        esac
+    done
+}
+    #!/bin/bash
+
+    # ========== Tables Management ==========
+    # Author: Beshoy Botros Hanna
+    # Responsibilities:
+    # - Create Table.
+    # - List Tables.
+    # - Drop Table.
+    # - Handles schema storage (.meta file).
+    # - Validates table.
+
+    source ./table_options.sh
+
+    # Create Table
+
+    create_table() {
+        read -p "Enter table name: " tname
+        if [[ -z "$tname" || "$tname" =~ [^a-zA-Z0-9_] ]]; then
+            echo "Invalid table name. Use only letters, numbers, underscores."
+            return
+        fi
+
+        target_meta="$DB_DIR/$tname.meta"
+        target_data="$DB_DIR/$tname.data"
+
+        # do not overwrite existing table
+        if [[ -e "$target_meta" || -e "$target_data" ]]; then
+            echo "Table '$tname' already exists." >&2
+            return 
+        fi
+
+        read -p "Enter number of columns: " cols
+        # positive integer only
+        if ! [[ "$cols" =~ ^[1-9][0-9]*$ ]]; then
+            echo "Invalid column count. Must be a positive integer." >&2
+            return 
+        fi
+
+        schema=""
+        for (( i=1; i<=cols; i++ )); do
+            # loop until a valid column name is provided
+            while true; do
+                read -p "Enter name of column $i: " colname
+                if [[ "$colname" =~ ^[A-Za-z0-9_]+$ ]]; then
+                    break
+                fi
+                echo "Invalid column name. Use only letters, numbers, underscores."
+            done
+
+            # loop until a valid datatype is provided (accepts 'int' or 'string')
+            while true; do
+                read -p "Enter datatype (int/string) for $colname: " coltype
+                coltype="${coltype,,}"   # ya Beshoo we use this to convert the "coltype" to lowercase  ex:  Int ---> int
+                if [[ "$coltype" =~ ^(int|string)$ ]]; then
+                    break
+                fi
+                echo "Invalid datatype. Please enter 'int' or 'string'."
+            done
+
+            if [[ $i -eq 1 ]]; then
+                # first column is PRIMARY KEY
+                schema+="$colname:$coltype:PK,"
+                echo "Note: Column '$colname' is set as PRIMARY KEY."
+            else
+                schema+="$colname:$coltype,"
+            fi
+        done
+
+        schema=${schema%,}  # remove the last comma
+        echo "$schema" > "$DB_DIR/$tname.meta"
+        touch "$DB_DIR/$tname.data"
+
+        echo "Table '$tname' created with schema: $schema"
+    }
+
+
+
+    # List Tables
+    list_tables() {
+        echo "Tables in database:"
+
+        for meta_file in "$DB_DIR"/*.meta; do
+
+            [[ -e "$meta_file" ]] || { echo "No tables found."; return; }
+
+            tname=$(basename "$meta_file" .meta)
+
+            schema=$(head -n 1 "$meta_file")
+
+            echo "Table: $tname | Schema: $schema"
+        done
+    }
+    # Drop Table
+    drop_table() {
+        read -p "Enter table name to drop: " tname
+        if [[ ! -f "$DB_DIR/$tname.meta" ]]; then
+            echo "Table '$tname' does not exist."
+            return
+        fi
+
+        rm "$DB_DIR/$tname.meta" "$DB_DIR/$tname.data"
+        echo "Table '$tname' dropped."
+    }
+
+    # Select table
+
+    select_table() {
+        echo "Available tables:"
+        local tables=()
+
+        # collect all table names
+        for meta_file in "$DB_DIR"/*.meta; do
+            [[ -e "$meta_file" ]] || { echo "No tables found."; return; }
+            tables+=( "$(basename "$meta_file" .meta)" )
+        done
+
+        # show menu
+        select tname in "${tables[@]}"; do
+            if [[ -n "$tname" ]]; then
+                TABLE_NAME="$tname"
+                export TABLE_NAME
+                table_ops_menu
+                return
+            else
+                echo "Invalid choice. Try again."
+            fi
+        done
+    }
+
+
+    # main_tb_menu
+
+    main_tb_menu() {
+        while true; do
+            clear
+            echo "==============================="
+            echo "       Tables operations       "
+            echo "==============================="
+
+            echo "1. Create table."
+            echo "2. List tables."
+            echo "3. Delete table."
+            echo "4. Select table."
+            echo "5. Exit"
+
+            read -p "Enter your choice: " choice
+            case $choice in
+                1) 
+                    clear
+                    create_table 
+                    read -p "Press Enter to continue..." ;;
+                2) 
+                    clear
+                    list_tables 
+                    read -p "Press Enter to continue..." ;;
+                3) 
+                    clear
+                    drop_table 
+                    read -p "Press Enter to continue..." ;;
+                4) 
+                    clear
+                    select_table
+                    read -p "Press Enter to continue..." ;;
+                5) break ;;
+                *) 
+                    echo "Invalid choice. Please try again."
+                    sleep 1 ;;
+            esac
+        done
+    }
+
+
+
+#!/bin/bash
+
+# ========== Update & Delete Operations ==========
+# Author: Ahmed Gamal
+# Responsibilities:
+# - Update rows in a table (with WHERE condition)
+# - Delete rows from a table (with WHERE condition)
+
+
+# ============================================================
+# Purpose:
+#   - let user choose a column to update, enter a new value , apply changes to rows that match 
+# ============================================================
+
+update_rows() {
+
+    if [[ -z "$TABLE_NAME" ]]; then
+        echo "error: no table selected. please select a table first."
+        return
+    fi
+
+    meta_file="$DB_DIR/$TABLE_NAME.meta"
+    data_file="$DB_DIR/$TABLE_NAME.data"
+
+    if [[ ! -f "$meta_file" || ! -f "$data_file" ]]; then
+        echo "error: table '$TABLE_NAME' does not exist."
+        return
+    fi
+
+
+    schema=$(cat "$meta_file")
+    IFS=',' read -r -a columns <<< "$schema"
+
+    echo "available columns:"
+    for i in "${!columns[@]}"; do
+        cname=$(echo "${columns[$i]}" | cut -d':' -f1)
+        echo "$((i+1)). $cname"
+    done
+
+    read -p "enter column name to update: " update_col
+    read -p "enter new value: " new_val
+    read -p "enter WHERE column name: " where_col
+    read -p "enter WHERE value: " where_val
+
+
+    update_index=-1
+    where_index=-1
+
+    for i in "${!columns[@]}"; do
+        cname=$(echo "${columns[$i]}" | cut -d':' -f1)
+        if [[ "$cname" == "$update_col" ]]; then update_index=$i; fi
+        if [[ "$cname" == "$where_col" ]]; then where_index=$i; fi
+    done
+
+    if [[ $update_index -eq -1 || $where_index -eq -1 ]]; then
+        echo "error: invalid column name."
+        return
+    fi
+
+    tmp_file=$(mktemp)
+    updated=false
+
+
+    while IFS=',' read -r -a row; do
+
+        if [[ "${row[$where_index]}" == "$where_val" ]]; then
+            row[$update_index]="$new_val"
+            updated=true
+        fi
+
+        echo "${row[*]}" | sed 's/ /,/g' >> "$tmp_file"
+    done < "$data_file"
+
+    mv "$tmp_file" "$data_file"
+
+    if $updated; then
+        echo "rows updated successfully."
+    else
+        echo "no rows matched the condition."
+    fi
+}
+
+# ============================================================
+# Purpose:
+#   - remove rows from a table based on a WHERE match
+# ============================================================
+delete_rows() {
+
+    if [[ -z "$TABLE_NAME" ]]; then
+        echo "error: no table selected. please select a table first."
+        return
+    fi
+
+    meta_file="$DB_DIR/$TABLE_NAME.meta"
+    data_file="$DB_DIR/$TABLE_NAME.data"
+
+
+    if [[ ! -f "$meta_file" || ! -f "$data_file" ]]; then
+        echo "error: table '$TABLE_NAME' does not exist."
+        return
+    fi
+
+
+    schema=$(cat "$meta_file")
+    IFS=',' read -r -a columns <<< "$schema"
+
+
+    echo "available columns:"
+    for i in "${!columns[@]}"; do
+        cname=$(echo "${columns[$i]}" | cut -d':' -f1)
+        echo "$((i+1)). $cname"
+    done
+
+
+    read -p "enter WHERE column name: " where_col
+    read -p "enter WHERE value: " where_val
+
+
+    where_index=-1
+    for i in "${!columns[@]}"; do
+        cname=$(echo "${columns[$i]}" | cut -d':' -f1)
+        if [[ "$cname" == "$where_col" ]]; then where_index=$i; fi
+    done
+
+
+    if [[ $where_index -eq -1 ]]; then
+        echo "error: invalid WHERE column."
+        return
+    fi
+
+    tmp_file=$(mktemp)
+    deleted=false
+
+
+    while IFS=',' read -r -a row; do
+
+        if [[ "${row[$where_index]}" == "$where_val" ]]; then
+            deleted=true
+            continue
+        fi
+
+        echo "${row[*]}" | sed 's/ /,/g' >> "$tmp_file"
+    done < "$data_file"
+
+    mv "$tmp_file" "$data_file"
+
+    if $deleted; then
+        echo "rows deleted successfully."
+    else
+        echo "no rows matched the condition."
+    fi
+}
