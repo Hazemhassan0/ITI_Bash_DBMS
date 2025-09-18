@@ -50,7 +50,7 @@
             # loop until a valid datatype is provided (accepts 'int' or 'string')
             while true; do
                 read -p "Enter datatype (int/string) for $colname: " coltype
-                coltype="${coltype,,}"   # ya Beshoo we use this to convert the "coltype" to lowercase  ex:  Int ---> int
+                coltype="${coltype,,}"
                 if [[ "$coltype" =~ ^(int|string)$ ]]; then
                     break
                 fi
