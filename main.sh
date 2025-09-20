@@ -42,11 +42,20 @@ list_dbs() {
     if [ -z "$(ls "$DB_PATH")" ]; then
         echo "No databases found."
     else
-        ls "$DB_PATH"
+        ls "$DB_PATH" | nl
     fi
 }
 
 drop_db() {
+
+    if [ -z "$(ls -A "$DB_PATH")" ]; then
+        echo "No databases found to drop."
+        return
+    fi
+
+    echo "Available Databases:"
+    ls "$DB_PATH" | nl
+
     read -p "Enter the database name you want to drop: " db_name
 
     if [[ -z "$db_name" ]]; then
@@ -64,6 +73,16 @@ drop_db() {
 
 
 connect_db() {
+
+    if [ -z "$(ls -A "$DB_PATH")" ]; then
+        echo "No databases found to drop."
+        return
+    fi
+
+    echo "Available Databases:"
+    ls "$DB_PATH" | nl
+
+    
     read -p "Enter the database name you want to connect to: " db_name
 
     if [[ -z "$db_name" ]]; then
