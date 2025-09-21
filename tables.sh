@@ -1,13 +1,13 @@
     #!/bin/bash
 
-    # ========== Tables Management ==========
-    # Author: Beshoy Botros Hanna
-    # Responsibilities:
-    # - Create Table.
-    # - List Tables.
-    # - Drop Table.
-    # - Handles schema storage (.meta file).
-    # - Validates table.
+# ========== Tables Management ==========
+# Author: Beshoy Botros Hanna
+# Responsibilities:
+# - Create Table.
+# - List Tables.
+# - Drop Table.
+# - Handles schema storage (.meta file).
+# - Validates table.
 
     source ./table_options.sh
 
