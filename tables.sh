@@ -11,7 +11,6 @@
 
     source ./table_options.sh
 
-    # Create Table
 
     create_table() {
         read -p "Enter table name: " tname
@@ -23,14 +22,13 @@
         target_meta="$DB_DIR/$tname.meta"
         target_data="$DB_DIR/$tname.data"
 
-        # do not overwrite existing table
         if [[ -e "$target_meta" || -e "$target_data" ]]; then
             echo "Table '$tname' already exists." >&2
             return 
         fi
 
         read -p "Enter number of columns: " cols
-        # positive integer only
+
         if ! [[ "$cols" =~ ^[1-9][0-9]*$ ]]; then
             echo "Invalid column count. Must be a positive integer." >&2
             return 
@@ -38,7 +36,7 @@
 
         schema=""
         for (( i=1; i<=cols; i++ )); do
-            # loop until a valid column name is provided
+
             while true; do
                 read -p "Enter name of column $i: " colname
                 if [[ "$colname" =~ ^[A-Za-z0-9_]+$ ]]; then
@@ -47,7 +45,6 @@
                 echo "Invalid column name. Use only letters, numbers, underscores."
             done
 
-            # loop until a valid datatype is provided (accepts 'int' or 'string')
             while true; do
                 read -p "Enter datatype (int/string) for $colname: " coltype
                 coltype="${coltype,,}"
@@ -58,7 +55,7 @@
             done
 
             if [[ $i -eq 1 ]]; then
-                # first column is PRIMARY KEY
+
                 schema+="$colname:$coltype:PK,"
                 echo "Note: Column '$colname' is set as PRIMARY KEY."
             else
@@ -66,7 +63,7 @@
             fi
         done
 
-        schema=${schema%,}  # remove the last comma
+        schema=${schema%,}
         echo "$schema" > "$DB_DIR/$tname.meta"
         touch "$DB_DIR/$tname.data"
 
@@ -74,8 +71,6 @@
     }
 
 
-
-    # List Tables
     list_tables() {
         echo "Tables in database:"
 
@@ -90,7 +85,8 @@
             echo "Table: $tname | Schema: $schema"
         done
     }
-    # Drop Table
+
+
     drop_table() {
         read -p "Enter table name to drop: " tname
         if [[ ! -f "$DB_DIR/$tname.meta" ]]; then
@@ -102,19 +98,19 @@
         echo "Table '$tname' dropped."
     }
 
-    # Select table
 
     select_table() {
         echo "Available tables:"
         local tables=()
 
-        # collect all table names
         for meta_file in "$DB_DIR"/*.meta; do
-            [[ -e "$meta_file" ]] || { echo "No tables found."; return; }
+            if [[ ! -e "$meta_file" ]]; then
+                echo "No tables found."
+                return
+            fi
             tables+=( "$(basename "$meta_file" .meta)" )
         done
 
-        # show menu
         select tname in "${tables[@]}"; do
             if [[ -n "$tname" ]]; then
                 TABLE_NAME="$tname"
@@ -127,8 +123,6 @@
         done
     }
 
-
-    # main_tb_menu
 
     main_tb_menu() {
         while true; do
@@ -164,6 +158,7 @@
                     select_table
                     read -p "Press Enter to continue..." ;;
                 5) break ;;
+
                 *) 
                     echo "Invalid choice. Please try again."
                     sleep 1 ;;
